@@ -1,0 +1,8 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/blackstargit/novel-scrapers-scribblehub-backend
+	branch = main
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/blackstargit/novel-scrapers-scribblehub-frontend
+	branch = main
