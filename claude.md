@@ -16,29 +16,57 @@ Build a full end-to-end automation that:
 
 ---
 
+## Repository & Submodule Structure
+
+This project uses a **nested Git submodule** hierarchy:
+
+```
+novel-main/               ← Root monorepo (parent)
+└── scrapers/             ← Submodule: blackstargit/novel-scrapers
+    └── scribblehub/      ← Submodule: blackstargit/novel-scrapers-scribblehub  ← YOU ARE HERE
+        ├── backend/      ← Sub-submodule: blackstargit/novel-scrapers-scribblehub-backend
+        └── frontend/     ← Sub-submodule: blackstargit/novel-scrapers-scribblehub-frontend
+```
+
+> ⚠️ When cloning, always use `git clone --recurse-submodules` to initialize all nested submodules.
+> After pulling, run `git submodule update --init --recursive` to sync sub-submodules.
+
 ## Project Layout
 
 ```
 scrapers/scribblehub/
 ├── claude.md              ← YOU ARE HERE — read before coding
 ├── README.md              ← Public instructions for setting up the project
+├── .gitmodules            ← Declares backend/ and frontend/ as submodules
 ├── docs/
 │   └── VPS_DEPLOYMENT_GUIDE.md  ← Full guide: Docker + DuckDNS + NGINX + SSL
 │
-├── backend/               ← Python FastAPI application
+├── backend/               ← Python FastAPI application (Git submodule)
 │   ├── .env               ← secrets (never commit)
 │   ├── .env.example       ← Template of required env vars (safe to commit)
-│   ├── .gitignore
+│   ├── .gitignore         ← Ignores .env, data/, __pycache__, .venv/
+│   ├── .venv/             ← Python virtual environment (git-ignored, local only)
 │   ├── Dockerfile         ← python:3.11-slim, port 8600
 │   ├── docker-compose.yml ← Orchestrates scraper + FlareSolverr
-│   ├── main.py            ← FastAPI app (API endpoints)
-│   ├── scraper.py         ← ScribbleHub HTML scraper (lxml + two-tier fetch)
-│   ├── emailer.py         ← Gmail SMTP sender (port 587, STARTTLS)
-│   ├── md_to_epub.py      ← EPUB Builder
 │   ├── requirements.txt
+│   ├── app/               ← FastAPI application package
+│   │   ├── __init__.py
+│   │   ├── main.py        ← App factory + lifespan + middleware
+│   │   ├── config.py      ← Settings (pydantic-settings, reads .env)
+│   │   ├── models.py      ← Pydantic request/response models
+│   │   ├── state.py       ← In-memory job store + thread lock
+│   │   ├── routers/
+│   │   │   ├── __init__.py
+│   │   │   ├── scrape.py  ← POST /api/scrape  — start / attach to scrape job
+│   │   │   └── status.py  ← GET  /api/status/{job_id}, GET /api/jobs
+│   │   └── services/
+│   │       ├── __init__.py
+│   │       ├── scraper.py    ← ScribbleHub HTML scraper (lxml + two-tier fetch)
+│   │       ├── emailer.py    ← Gmail SMTP sender (port 587, STARTTLS)
+│   │       └── md_to_epub.py ← EPUB builder (ebooklib + markdown)
 │   └── data/              ← (git-ignored) Downloaded novels keyed by Post ID
 │
-└── frontend/              ← React + Vite + TypeScript + Tailwind CSS v4
+└── frontend/              ← React + Vite + TypeScript + Tailwind CSS v4 (Git submodule)
     ├── .env.development   ← VITE_API_URL for local dev proxy
     ├── index.html         ← Vite entry HTML
     ├── vite.config.ts     ← Vite config (@ alias → src/, Tailwind plugin)
@@ -62,14 +90,15 @@ scrapers/scribblehub/
                 └── ProgressBar.tsx ← Gradient progress bar
 ```
 
-> **Backend virtual environment** (for running the Python backend locally without Docker):
+> **Backend virtual environment** — The backend uses `.venv` (located at `backend/.venv/`) as its Python virtual environment. It is **git-ignored** and must be created locally or on the VPS.
 > ```bash
 > cd backend/
 > python -m venv .venv
-> source .venv/Scripts/activate  # Windows
-> source .venv/bin/activate      # Linux / VPS
+> # Activate:
+> .venv\Scripts\activate      # Windows (CMD / PowerShell)
+> source .venv/bin/activate   # Linux / macOS / VPS
 > pip install -r requirements.txt
-> uvicorn main:app --reload
+> uvicorn app.main:app --reload --port 8600
 > ```
 
 > **Frontend dev server** (Vite — separate from the backend):
